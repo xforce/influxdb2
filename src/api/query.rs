@@ -12,8 +12,8 @@ use chrono::DateTime;
 use csv::StringRecord;
 use fallible_iterator::FallibleIterator;
 use go_parse_duration::parse_duration;
-use influxdb2_structmap::{FromMap, GenericMap};
 use influxdb2_structmap::value::Value;
+use influxdb2_structmap::{FromMap, GenericMap};
 use ordered_float::OrderedFloat;
 use reqwest::{Method, StatusCode};
 use snafu::ResultExt;
@@ -409,7 +409,7 @@ impl QueryResult {
         let mut key_order: Vec<GenericMap> = vec![];
         for record in qtr.iterator() {
             let mut map = record?.values;
-            
+
             let mut key = map.clone();
             key.retain(|k, _| !blacklist.contains(k));
 
@@ -417,10 +417,10 @@ impl QueryResult {
                 Some(entry) => {
                     // Set field value
                     let field;
-                    if let Value::String(f) = map.get("_field").unwrap() {
+                    if let Some(Value::String(f)) = map.get("_field") {
                         field = f.clone();
                     } else {
-                        panic!("");
+                        field = "_value".to_string();
                     }
                     let value = map.get("_value").unwrap();
                     entry.insert(field, value.clone());
@@ -428,13 +428,14 @@ impl QueryResult {
                 None => {
                     // Set field value
                     let field;
-                    if let Value::String(f) = map.get("_field").unwrap() {
+                    if let Some(Value::String(f)) = map.get("_field") {
                         field = f.clone();
                     } else {
-                        panic!("");
+                        field = "_value".to_string();
                     }
-                    let value = map.get("_value").unwrap();
-                    map.insert(field, value.clone());
+                    if let Some(value) = map.get("_value") {
+                        map.insert(field, value.clone());
+                    }
 
                     build_table.insert(key.clone(), map);
                     key_order.push(key);
