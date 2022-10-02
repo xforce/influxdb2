@@ -4,7 +4,7 @@ use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-use crate::{Client, Http, RequestError, ReqwestProcessing, Serializing};
+use crate::{Client, HttpSnafu, RequestError, ReqwestProcessingSnafu, SerializingSnafu};
 use crate::models::{Tasks, TaskStatusType};
 
 impl Client {
@@ -23,19 +23,19 @@ impl Client {
             .request(Method::GET, &url)
             .send()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let text = response.text().await.context(ReqwestProcessing)?;
-            let res = Http { status, text }.fail();
+            let text = response.text().await.context(ReqwestProcessingSnafu)?;
+            let res = HttpSnafu { status, text }.fail();
             return res;
         }
 
         let res = response
             .json::<Tasks>()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
         Ok(res)
     }
 
@@ -49,16 +49,16 @@ impl Client {
             .request(Method::POST, &url)
             .body(
                 serde_json::to_string(&request)
-                    .context(Serializing)?,
+                    .context(SerializingSnafu)?,
             )
             .send()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let text = response.text().await.context(ReqwestProcessing)?;
-            Http { status, text }.fail()?;
+            let text = response.text().await.context(ReqwestProcessingSnafu)?;
+            HttpSnafu { status, text }.fail()?;
         }
 
         Ok(())
@@ -71,11 +71,11 @@ impl Client {
             .request(Method::DELETE, &url)
             .send()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
         if !response.status().is_success() {
             let status = response.status();
-            let text = response.text().await.context(ReqwestProcessing)?;
-            Http { status, text }.fail()?;
+            let text = response.text().await.context(ReqwestProcessingSnafu)?;
+            HttpSnafu { status, text }.fail()?;
         }
         Ok(())
     }

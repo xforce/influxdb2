@@ -1,11 +1,11 @@
 //! Buckets API
 
 use reqwest::Method;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
 use crate::models::{Buckets, PostBucketRequest};
-use crate::{Client, Http, RequestError, ReqwestProcessing, Serializing};
+use crate::{Client, HttpSnafu, RequestError, ReqwestProcessingSnafu, SerializingSnafu};
 
 impl Client {
     /// List all buckets matching specified parameters
@@ -16,26 +16,26 @@ impl Client {
         let qs = serde_qs::to_string(&request).unwrap();
         let url = match &qs[..] {
             "" => format!("{}/api/v2/buckets", self.url),
-            _  => format!("{}/api/v2/buckets?{}", self.url, qs),
+            _ => format!("{}/api/v2/buckets?{}", self.url, qs),
         };
 
         let response = self
             .request(Method::GET, &url)
             .send()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let text = response.text().await.context(ReqwestProcessing)?;
-            let res = Http { status, text }.fail();
+            let text = response.text().await.context(ReqwestProcessingSnafu)?;
+            let res = HttpSnafu { status, text }.fail();
             return res;
         }
 
         let res = response
             .json::<Buckets>()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
 
         Ok(res)
     }
@@ -52,41 +52,38 @@ impl Client {
             .request(Method::POST, &create_bucket_url)
             .body(
                 serde_json::to_string(&post_bucket_request.unwrap_or_default())
-                    .context(Serializing)?,
+                    .context(SerializingSnafu)?,
             )
             .send()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let text = response.text().await.context(ReqwestProcessing)?;
-            Http { status, text }.fail()?;
+            let text = response.text().await.context(ReqwestProcessingSnafu)?;
+            HttpSnafu { status, text }.fail()?;
         }
 
         Ok(())
     }
 
     /// Delete a bucket specified by bucket id.
-    pub async fn delete_bucket(
-        &self, 
-        bucket_id: &str
-    ) -> Result<(), RequestError> {
+    pub async fn delete_bucket(&self, bucket_id: &str) -> Result<(), RequestError> {
         let url = format!("{}/api/v2/buckets/{}", self.url, bucket_id);
         let response = self
             .request(Method::DELETE, &url)
             .send()
             .await
-            .context(ReqwestProcessing)?;
+            .context(ReqwestProcessingSnafu)?;
         if !response.status().is_success() {
             let status = response.status();
-            let text = response.text().await.context(ReqwestProcessing)?;
-            Http { status, text }.fail()?;
+            let text = response.text().await.context(ReqwestProcessingSnafu)?;
+            HttpSnafu { status, text }.fail()?;
         }
         Ok(())
     }
 }
- 
+
 /// Request for list buckets API
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -146,4 +143,3 @@ mod tests {
         assert_eq!(serde_qs::to_string(&request).unwrap(), "");
     }
 }
-
